@@ -180,7 +180,7 @@ lit_sorted - хранит в себе номер переменной и кол-
 
 
 
-Ссылки на материалы:
+Ссылки на материалы которыми пользовался:  
 https://docs.yandex.ru/docs/view?tm=1743619645&tld=ru&lang=ru&name=sat.pdf&text=%D0%BA%D0%B0%D0%BA%20%D0%BB%D1%83%D1%87%D1%88%D0%B5%20%D1%80%D0%B5%D0%B0%D0%BB%D0%B8%D0%B7%D0%BE%D0%B2%D0%B0%D1%82%D1%8C%20%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%BA%D0%BD%D1%84%20%D0%B4%D0%BB%D1%8F%20SAT&url=https%3A%2F%2Falexanderdyakonov.narod.ru%2Fsat.pdf&lr=213&mime=pdf&l10n=ru&sign=867f2be1518868eeb2f0be64a9971215&keyno=0&nosw=1&serpParams=tm%3D1743619645%26tld%3Dru%26lang%3Dru%26name%3Dsat.pdf%26text%3D%25D0%25BA%25D0%25B0%25D0%25BA%2B%25D0%25BB%25D1%2583%25D1%2587%25D1%2588%25D0%25B5%2B%25D1%2580%25D0%25B5%25D0%25B0%25D0%25BB%25D0%25B8%25D0%25B7%25D0%25BE%25D0%25B2%25D0%25B0%25D1%2582%25D1%258C%2B%25D1%2585%25D1%2580%25D0%25B0%25D0%25BD%25D0%25B5%25D0%25BD%25D0%25B8%25D0%25B5%2B%25D0%25BA%25D0%25BD%25D1%2584%2B%25D0%25B4%25D0%25BB%25D1%258F%2BSAT%26url%3Dhttps%253A%2F%2Falexanderdyakonov.narod.ru%2Fsat.pdf%26lr%3D213%26mime%3Dpdf%26l10n%3Dru%26sign%3D867f2be1518868eeb2f0be64a9971215%26keyno%3D0%26nosw%3D1  
 
 https://lipen.github.io/sirius-2020/assets/slides/CDCL%20SAT%20solvers.pdf  
