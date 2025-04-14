@@ -49,7 +49,7 @@ SAT::SAT(std::string& name_file) {
 }
 
 //увеличивает рейтинг переменной при конфликте
-void SAT::add_conflict(int _var){
+void SAT::raise_rating(int _var){
 static int count = 0;
 int i = 0;
     count++;
@@ -71,135 +71,147 @@ int i = 0;
     return;
 }
 
-//удаляет чистые литералы
-void SAT::delete_blank_lit(void) {
-    for (int j = 1; j < var.size(); ++j) {
-        int sign = (var[j][0]>0)?1:-1;
-        bool flag = true;
-        for (int k = 0; k < var[j].size(); ++k) {
-            if (sign*((var[j][k]>0)?1:-1) < 0) {
-                flag = false;
-                break;
-            }
-        }
-        if (flag) single_literal.push_back(sign*j);  //добавляем в список на удаление
-    }
-    return;
-}
-
 //удаляет все перменные из списка single_literal
 void SAT::delete_single_literal(std::vector<int>& assignment) {
-    for (int lit : single_literal) {
+    if (single_literal.empty()) return;
+    int i = -1;
+    do {
+        i++;
+        int lit = single_literal[i];
         int lit_abs = abs(lit);
+
         //прохожусь по номерам клауз соответсвующей переменной lit_abs
         for (int k = 0; k < var[lit_abs].size(); ++k) {
             int claus = abs(var[lit_abs][k]);
-            
             if(lit*var[lit_abs][k] > 0)  {
-                for(int lit : clauses[claus].literals){
-                    std::erase(var[abs(lit)], claus);
-                }
                 clauses[claus].literals.clear();
-                //нужно так же добавить удаление claus из всего массива var
-
-            } else                  //если в клаузе литерал противолложного знака
-                std::erase(clauses[claus].literals, (-1)*lit);
+            } else {                //если в клаузе литерал противолложного знака
+                std::erase(clauses[claus].literals, -lit);
+                if (clauses[claus].literals.size() == 1) {
+                    single_literal.push_back(clauses[claus].literals[0]);
+                }
+            }
         }
         var[lit_abs].clear();
         assignment[lit_abs] = (lit > 0)? 1 : -1;
-    }
+    } while (single_literal.size() != i+1);
     single_literal.clear();
     return;
 }
 
 //проверка выполнимость кнф на наборе assignment и выявление конфликтов
-bool SAT::unitPropaget(std::vector<int>& assignment, std::stack<int>& decision) {
-    bool changed;
+bool SAT::unitPropaget(std::vector<int>& assignment, std::stack<int>& decision, std::queue<int>& units) {
     do {
-        changed = false;
-        for (int j = 1; j < clauses.size(); ++j) {
-            if (clauses[j].literals.size() == 0)
-                continue;
-            if  (is_satisfiable(clauses[j], assignment))
-                continue;
+        int lit = units.front();
+        units.pop();
+        int var = abs(lit);
+        std::vector<int>& watch_list = (assignment[var] == 1)? watch_list_neg[var] : watch_list_pos[var];
+
+        for (int i = 0; i < watch_list.size(); ++i) {
+            int w = watch_list[i];
+            Clause& clause = clauses[w];
             
-            int unassigned = 0, unit_lit = 0;
-            for (int lit : clauses[j].literals) {
-                if (assignment[abs(lit)] == 0) {
-                    unassigned++;
-                    unit_lit = lit;
+            int iter_false_lit = (clause.literals[0] == -lit) ? 0 : 1;//на какой позиции стоит ложный смотрящий
+            int watch1 = clause.literals[iter_false_lit];
+            int watch2 = clause.literals[(iter_false_lit==0)?1:0];
+
+            bool found_new_watch = false;
+            for (int j = 2; j < clause.literals.size(); ++j) {
+                int alt = clause.literals[j];
+                int alt_abs = abs(alt);
+
+                if (assignment[alt_abs] == 0 ||
+                    (alt > 0 && assignment[alt_abs] == 1) ||
+                    (alt < 0 && assignment[alt_abs] == -1)) {
+
+                    //заменяю на новый смотрящий и перемещаю его в начало клаузы
+                    std::erase(watch_list, w);
+                    --i;
+                    if (alt > 0) watch_list_pos[alt].push_back(w);
+                    else watch_list_neg[-alt].push_back(w);
+
+                    clause.literals.erase(clause.literals.begin() + j);
+                    clause.literals.erase(clause.literals.begin() + iter_false_lit);
+                    clause.literals.emplace(clause.literals.begin() + iter_false_lit, alt);
+                    clause.literals.emplace(clause.literals.begin() + j, watch1);                
+                    found_new_watch = true;
+                    break;
                 }
             }
 
-            if (unassigned == 0)
-                return false; // конфликт
-            if (unassigned == 1) {
-                //единственный не назначенный литерал в клаузе
-                int v_abs = abs(unit_lit);
-                assignment[v_abs] = (unit_lit > 0)? 1 : -1;
-                decision.push(unit_lit);
-                changed = true;
-            }
-        }
-    }while (changed);
-    return true;
+            if (found_new_watch) continue;
+            if ((watch2 > 0 && assignment[abs(watch2)] == 1) ||
+                (watch2 < 0 && assignment[abs(watch2)] ==-1)) continue;
 
+            if(assignment[abs(watch2)] == 0) {
+                assignment[abs(watch2)] = (watch2 > 0)? 1 : -1;
+                decision.push(watch2);
+                units.push(watch2);
+                
+            } else {
+                if (is_satisfiable(clause, assignment)) continue; //тут ещеё можно чек
+                for (int lit : clause.literals) {
+                    raise_rating(lit);
+                }
+                return false; //конфликт
+            }   
+        }
+    } while (!units.empty());
+    return true;
+}
+
+bool SAT::all_assigned(std::vector<int>& assignment, std::stack<int>& decision, std::queue<int>& units){
+    bool satisfiable = true;
+    //вручную назначаем переменную
+    for (int j = 0; j < size_var; ++j)
+        if (assignment[lit_sorted[j].var] == 0) {
+            assignment[lit_sorted[j].var] = 1;
+            decision.push(lit_sorted[j].var);
+            satisfiable = false;
+            units.push(lit_sorted[j].var);
+            break;
+        }
+    return satisfiable;
 }
 
 bool SAT::solver(void) {
     std::vector<int> assignment(size_var+1, 0); //вектор значений переменных
-    std::stack<int> decision, level; //запоминаем решения и уровень для отката
+    std::stack<int> decision; //запоминаем решения для отката
+    std::queue<int> units;
 
     //небольшая предобработка
-    delete_blank_lit();
     delete_single_literal(assignment);
+    re_pars();
 
     while (true) {
-        if (!unitPropaget(assignment, decision)) {
-            //если возник конфликт
+        //все переменные определены и конфликтов не возникло и ручное присвоение
+        if (all_assigned(assignment, decision, units)) return true;
 
+        if (!unitPropaget(assignment, decision, units)) {
+            //если возник конфликт
             bool flag_step_back = false;
-            while (!level.empty()) {
-                int last = level.top();
-                while (last != decision.top()) {
-                    assignment[abs(decision.top())] = 0;
-                    decision.pop();
-                }
+            while (!decision.empty()) {
+                int last = decision.top();
                 int v_abs = abs(last);
-                decision.pop();
-                level.pop();
-                add_conflict(v_abs);   //добавляем рейтинг конфликтной переменной
 
                 if ((last > 0 && assignment[v_abs]== 1) ||
                     (last < 0 && assignment[v_abs]==-1)) {
                     //меняем на противоположное значение
                     assignment[v_abs] = (last > 0)? -1 : 1;
-                    decision.push(last);
-                    level.push(last);
                     flag_step_back = true; //получилось сделать шаг назад
+                    clear_queue(units);
+                    units.push(last);
                     break;
                 }
                 //если мы уже меняли на противоположное
                 assignment[v_abs] = 0;
+                decision.pop();
             }
             
-            if (!flag_step_back) return false; //все варианты были исчерпаны
+            if (!flag_step_back)return false; //все варианты были исчерпаны
             continue;
         }
-
-        //вручную назначаем переменную
-        bool satisfiable = true;
-        for (int j = 0; j < size_var; ++j)
-            if (assignment[lit_sorted[j].var] == 0) {
-                assignment[lit_sorted[j].var] = 1;
-                level.push(lit_sorted[j].var);
-                decision.push(lit_sorted[j].var);
-                satisfiable = false;
-                break;
-            }
-        
-        //все переменные определены и конфликтов не возникло
-        if (satisfiable) return true; 
+    
     }
 }
 
@@ -225,4 +237,28 @@ bool is_satisfiable(Clause& clause, std::vector<int> assignment) {
         }
     }
     return false;
+}
+
+void SAT::re_pars(void) {
+    //var.clear();
+    watch_list_pos.resize(size_var+1);
+    watch_list_neg.resize(size_var+1);
+    for (int i = 1; i < size_clauses; ++i) {
+        if (clauses[i].literals.size() > 1){
+            //назначение первых двух переменных как просматриваемых
+            int lit = clauses[i].literals[0];
+            if (lit > 0) watch_list_pos[lit].push_back(i);
+            else watch_list_neg[-lit].push_back(i);
+            
+            lit = clauses[i].literals[1];
+            if (lit > 0) watch_list_pos[lit].push_back(i);
+            else watch_list_neg[-lit].push_back(i);
+        }
+    }
+    return;
+}
+
+void clear_queue(std::queue<int>& units) {
+    while (!units.empty()) units.pop();
+    return;
 }
